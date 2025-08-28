@@ -22,7 +22,7 @@ class PromptManager:
                                      original_question: str, thinking_chain: str, answer: str) -> str:
         """获取问题生成提示词"""
         # 构建专家描述
-        expert_roles = [f"{tag}领域的专家" for tag in domain_tags if tag and tag.strip()]
+        expert_roles = [f"{tag}领域的出题专家" for tag in domain_tags if tag and tag.strip()]
         expert_description = "、".join(expert_roles) if expert_roles else "教育专家"
         
         return QUESTION_GENERATION_PROMPT.format(
@@ -38,7 +38,7 @@ class PromptManager:
     def get_solution_prompt(domain_tags: List[str], question_type: str, question: str) -> str:
         """获取问题解答提示词"""
         # 构建专家描述
-        expert_roles = [f"{tag}领域的专家" for tag in domain_tags if tag and tag.strip()]
+        expert_roles = [f"{tag}领域的解题专家" for tag in domain_tags if tag and tag.strip()]
         expert_description = "、".join(expert_roles) if expert_roles else "教育专家"
         
         return SOLUTION_PROMPT.format(
@@ -53,7 +53,7 @@ class PromptManager:
                               question: str, thinking_chain: str, answer: str) -> str:
         """获取思维链检查提示词"""
         # 构建专家描述
-        expert_roles = [f"{tag}领域的专家" for tag in domain_tags if tag and tag.strip()]
+        expert_roles = [f"{tag}领域的解题家" for tag in domain_tags if tag and tag.strip()]
         expert_description = "、".join(expert_roles) if expert_roles else "教育专家"
         
         return VERIFICATION_PROMPT.format(
