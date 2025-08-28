@@ -25,7 +25,7 @@ def run_interactive():
     
     workflow = QuestionGenerationWorkflow()
     
-    print("请输入问题信息（输入空行结束）:")
+    print("请输入问题信息（问题与思维链支持多行，空行结束；答案单行）:")
     
     # 获取问题
     print("\n📝 问题:")
@@ -41,7 +41,11 @@ def run_interactive():
         print("❌ 问题不能为空")
         return
     
-    # 获取思维链
+    # 获取答案（单行）
+    print("\n✅ 答案:")
+    answer = input().strip()
+    
+    # 获取思维链（多行，空行结束）
     print("\n💭 思维链:")
     thinking_lines = []
     while True:
@@ -50,10 +54,6 @@ def run_interactive():
             break
         thinking_lines.append(line)
     thinking_chain = "\n".join(thinking_lines).strip()
-    
-    # 获取答案
-    print("\n✅ 答案:")
-    answer = input().strip()
     
     if not answer:
         print("❌ 答案不能为空")
@@ -117,8 +117,14 @@ def display_results(results):
     print("=" * 50)
     
     # 显示原问题标签
-    tags = results['original_question']['tags']
-    print(f"🏷️ 原问题标签: {', '.join(tags)}")
+    domain_tags = results['original_question']['domain_tags']
+    question_type = results['original_question']['question_type']
+    print(f"🏷️ 原问题标签: 领域={', '.join(domain_tags)}, 题型={question_type}")
+    
+    # 显示验证摘要
+    verification = results.get('verification_summary', {})
+    if verification:
+        print(f"🔍 检查摘要: {verification['passed']}/{verification['total']} 题通过, 平均分={verification['average_score']:.1f}")
     
     # 显示生成的问题和解答
     questions = results['generated_questions']
@@ -126,8 +132,12 @@ def display_results(results):
     print("-" * 50)
     
     for i, item in enumerate(questions, 1):
-        print(f"\n🔢 问题 {i}:")
+        verification_status = "✅" if item.get('solution', {}).get('verification_passed') else "❌"
+        score = item.get('solution', {}).get('verification_score', 0)
+        
+        print(f"\n🔢 问题 {i} {verification_status} (得分: {score}):")
         print(f"📝 {item['question']}")
+        print(f"🏷️ 领域: {', '.join(item['domain_tags'])}, 题型: {item['question_type']}")
         
         if 'solution' in item:
             print(f"\n💭 思维链:")
@@ -137,6 +147,11 @@ def display_results(results):
                 thinking = thinking[:200] + "..."
             print(f"{thinking}")
             print(f"\n✅ 答案: {item['solution']['answer']}")
+            
+            # 显示验证反馈
+            feedback = item['solution'].get('verification_feedback')
+            if feedback:
+                print(f"🔍 检查反馈: {feedback}")
         
         print("-" * 30)
 
@@ -145,8 +160,8 @@ def create_sample_file():
     """创建示例输入文件"""
     sample_data = {
         "question": "一个水池，进水管每小时可以注入池容量的1/10，出水管每小时可以排出池容量的1/15。现在水池是空的，如果同时打开进水管和出水管，多少小时可以把水池注满？",
-        "thinking_chain": "这是一个关于工程问题的题目，需要考虑进水和出水的净效率。\n\n设水池总容量为1（单位容量）\n\n进水管每小时注入：1/10\n出水管每小时排出：1/15\n\n净进水速度 = 进水速度 - 出水速度\n= 1/10 - 1/15\n= 3/30 - 2/30\n= 1/30\n\n所以每小时净进水量为池容量的1/30\n\n要注满整个水池（容量为1），需要的时间为：\n时间 = 总容量 ÷ 净进水速度 = 1 ÷ (1/30) = 30小时",
-        "answer": "30小时"
+        "answer": "30小时",
+        "thinking_chain": "这是一个关于工程问题的题目，需要考虑进水和出水的净效率。\n\n设水池总容量为1（单位容量）\n\n进水管每小时注入：1/10\n出水管每小时排出：1/15\n\n净进水速度 = 进水速度 - 出水速度\n= 1/10 - 1/15\n= 3/30 - 2/30\n= 1/30\n\n所以每小时净进水量为池容量的1/30\n\n要注满整个水池（容量为1），需要的时间为：\n时间 = 总容量 ÷ 净进水速度 = 1 ÷ (1/30) = 30小时"
     }
     
     with open("sample_input.json", "w", encoding="utf-8") as f:

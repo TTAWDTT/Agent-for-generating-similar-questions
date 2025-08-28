@@ -4,7 +4,8 @@ from .models.schemas import WorkflowState, QuestionInput
 from .agents.question_agents import (
     QuestionTaggingAgent, 
     QuestionGenerationAgent, 
-    QuestionSolvingAgent
+    QuestionSolvingAgent,
+    QuestionVerificationAgent
 )
 
 
@@ -15,6 +16,7 @@ class QuestionGenerationWorkflow:
         self.tagging_agent = QuestionTaggingAgent()
         self.generation_agent = QuestionGenerationAgent()
         self.solving_agent = QuestionSolvingAgent()
+        self.verification_agent = QuestionVerificationAgent()
         self.workflow = self._build_workflow()
     
     def _build_workflow(self) -> StateGraph:
@@ -26,11 +28,13 @@ class QuestionGenerationWorkflow:
         workflow.add_node("tag_question", self._tag_question_node)
         workflow.add_node("generate_questions", self._generate_questions_node)
         workflow.add_node("solve_questions", self._solve_questions_node)
+        workflow.add_node("verify_solutions", self._verify_solutions_node)
         
         # 添加边
         workflow.add_edge("tag_question", "generate_questions")
         workflow.add_edge("generate_questions", "solve_questions")
-        workflow.add_edge("solve_questions", END)
+        workflow.add_edge("solve_questions", "verify_solutions")
+        workflow.add_edge("verify_solutions", END)
         
         # 设置入口点
         workflow.set_entry_point("tag_question")
@@ -57,6 +61,14 @@ class QuestionGenerationWorkflow:
         
         print("🧠 开始解答生成的问题...")
         return self.solving_agent.solve_questions(state)
+    
+    def _verify_solutions_node(self, state: WorkflowState) -> WorkflowState:
+        """思维链检查节点"""
+        if state.error:
+            return state
+        
+        print("🔍 开始检查思维链质量...")
+        return self.verification_agent.verify_solutions(state)
     
     def run(self, question: str, thinking_chain: str, answer: str) -> WorkflowState:
         """运行工作流"""
@@ -101,10 +113,16 @@ class QuestionGenerationWorkflow:
         results = {
             "original_question": {
                 "question": state.input_question.question,
-                "tags": state.tagged_question.domain_tags if state.tagged_question else []
+                "domain_tags": state.tagged_question.domain_tags if state.tagged_question else [],
+                "question_type": state.tagged_question.question_type if state.tagged_question else ""
             },
             "generated_questions": [],
-            "solutions": []
+            "solutions": [],
+            "verification_summary": {
+                "total": len(state.verification_results),
+                "passed": sum(1 for r in state.verification_results if r.passed),
+                "average_score": sum(r.score for r in state.verification_results) / len(state.verification_results) if state.verification_results else 0
+            }
         }
         
         # 组合问题和解答
@@ -112,7 +130,8 @@ class QuestionGenerationWorkflow:
             question_data = {
                 "id": question.id,
                 "question": question.question,
-                "tags": question.domain_tags
+                "domain_tags": question.domain_tags,
+                "question_type": question.question_type
             }
             
             # 找到对应的解答
@@ -120,7 +139,10 @@ class QuestionGenerationWorkflow:
                 solution = state.solutions[i]
                 question_data["solution"] = {
                     "thinking_chain": solution.thinking_chain,
-                    "answer": solution.answer
+                    "answer": solution.answer,
+                    "verification_score": solution.verification_score,
+                    "verification_passed": solution.verification_passed,
+                    "verification_feedback": solution.verification_feedback
                 }
             
             results["generated_questions"].append(question_data)

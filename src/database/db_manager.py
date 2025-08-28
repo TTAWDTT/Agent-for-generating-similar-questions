@@ -25,6 +25,7 @@ class DatabaseManager:
                     thinking_chain TEXT NOT NULL,
                     answer TEXT NOT NULL,
                     domain_tags TEXT NOT NULL,
+                    question_type TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
             """)
@@ -36,6 +37,7 @@ class DatabaseManager:
                     original_question_id INTEGER,
                     question TEXT NOT NULL,
                     domain_tags TEXT NOT NULL,
+                    question_type TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (original_question_id) REFERENCES original_questions (id)
                 )
@@ -48,6 +50,9 @@ class DatabaseManager:
                     question_id INTEGER NOT NULL,
                     thinking_chain TEXT NOT NULL,
                     answer TEXT NOT NULL,
+                    verification_score INTEGER,
+                    verification_passed BOOLEAN,
+                    verification_feedback TEXT,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (question_id) REFERENCES generated_questions (id)
                 )
@@ -56,47 +61,60 @@ class DatabaseManager:
             conn.commit()
     
     def insert_original_question(self, question: str, thinking_chain: str, 
-                               answer: str, domain_tags: List[str]) -> int:
+                               answer: str, domain_tags: List[str], question_type: str) -> int:
         """插入原始问题"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO original_questions 
-                (question, thinking_chain, answer, domain_tags)
-                VALUES (?, ?, ?, ?)
-            """, (question, thinking_chain, answer, json.dumps(domain_tags)))
+                (question, thinking_chain, answer, domain_tags, question_type)
+                VALUES (?, ?, ?, ?, ?)
+            """, (question, thinking_chain, answer, json.dumps(domain_tags), question_type))
             return cursor.lastrowid
     
     def insert_generated_question(self, original_question_id: int, 
-                                question: str, domain_tags: List[str]) -> int:
+                                question: str, domain_tags: List[str], question_type: str) -> int:
         """插入生成的问题"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO generated_questions 
-                (original_question_id, question, domain_tags)
-                VALUES (?, ?, ?)
-            """, (original_question_id, question, json.dumps(domain_tags)))
+                (original_question_id, question, domain_tags, question_type)
+                VALUES (?, ?, ?, ?)
+            """, (original_question_id, question, json.dumps(domain_tags), question_type))
             return cursor.lastrowid
     
     def insert_question_solution(self, question_id: int, thinking_chain: str, 
-                               answer: str) -> int:
+                               answer: str, verification_score: Optional[int] = None,
+                               verification_passed: Optional[bool] = None,
+                               verification_feedback: Optional[str] = None) -> int:
         """插入问题解答"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 INSERT INTO question_solutions 
-                (question_id, thinking_chain, answer)
-                VALUES (?, ?, ?)
-            """, (question_id, thinking_chain, answer))
+                (question_id, thinking_chain, answer, verification_score, verification_passed, verification_feedback)
+                VALUES (?, ?, ?, ?, ?, ?)
+            """, (question_id, thinking_chain, answer, verification_score, verification_passed, verification_feedback))
             return cursor.lastrowid
+    
+    def update_solution_verification(self, solution_id: int, score: int, 
+                                   passed: bool, feedback: str):
+        """更新解答的检查结果"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE question_solutions 
+                SET verification_score = ?, verification_passed = ?, verification_feedback = ?
+                WHERE id = ?
+            """, (score, passed, feedback, solution_id))
     
     def get_generated_questions(self, original_question_id: int) -> List[GeneratedQuestion]:
         """获取生成的问题"""
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT id, original_question_id, question, domain_tags, created_at
+                SELECT id, original_question_id, question, domain_tags, question_type, created_at
                 FROM generated_questions
                 WHERE original_question_id = ?
             """, (original_question_id,))
@@ -108,7 +126,8 @@ class DatabaseManager:
                     original_question_id=row[1],
                     question=row[2],
                     domain_tags=json.loads(row[3]),
-                    created_at=datetime.fromisoformat(row[4])
+                    question_type=row[4],
+                    created_at=datetime.fromisoformat(row[5])
                 ))
             return questions
     
@@ -117,7 +136,8 @@ class DatabaseManager:
         with sqlite3.connect(self.db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
-                SELECT qs.id, qs.question_id, gq.question, qs.thinking_chain, qs.answer, qs.created_at
+                SELECT qs.id, qs.question_id, gq.question, qs.thinking_chain, qs.answer, 
+                       qs.verification_score, qs.verification_passed, qs.verification_feedback, qs.created_at
                 FROM question_solutions qs
                 JOIN generated_questions gq ON qs.question_id = gq.id
                 WHERE qs.question_id = ?
@@ -131,7 +151,10 @@ class DatabaseManager:
                     question=row[2],  # 通过关联查询获取的问题内容
                     thinking_chain=row[3],
                     answer=row[4],
-                    created_at=datetime.fromisoformat(row[5])
+                    verification_score=row[5],
+                    verification_passed=row[6],
+                    verification_feedback=row[7],
+                    created_at=datetime.fromisoformat(row[8])
                 ))
             return solutions
     
