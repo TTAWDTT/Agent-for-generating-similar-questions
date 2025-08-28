@@ -1,0 +1,2 @@
+# Agent-for-generating-similar-questions
+可以根据一道题来扩散性地生成几道同类的其他题的agent服务，采用langgraph的框架进行工作流的构建
