@@ -19,14 +19,57 @@ def main():
     
     # 创建工作流
     workflow = QuestionGenerationWorkflow()
-    
-    # 示例输入
-    sample_question = """
+
+    import sys
+    interactive = False
+    if len(sys.argv) > 1 and sys.argv[1] in ("--interactive", "-i"):
+        interactive = True
+
+    if interactive:
+        print("📝 交互模式: 请输入问题（多行，空行结束）：")
+        lines = []
+        while True:
+            try:
+                ln = input()
+            except EOFError:
+                break
+            if ln.strip() == "":
+                break
+            lines.append(ln)
+        user_question = "\n".join(lines).strip()
+
+        print("📝 请输入参考答案（单行即可，如无可留空）：")
+        user_answer = input().strip()
+
+        print("📝 请输入参考思维链（多行，空行结束，可留空）：")
+        lines = []
+        while True:
+            try:
+                ln = input()
+            except EOFError:
+                break
+            if ln.strip() == "":
+                break
+            lines.append(ln)
+        user_thinking = "\n".join(lines).strip()
+
+        print("\n" + "=" * 50)
+        print("开始运行工作流，使用你的输入：")
+        print(f"问题: {user_question[:200]}{'...' if len(user_question)>200 else ''}")
+
+        result_state = workflow.run(
+            question=user_question,
+            thinking_chain=user_thinking,
+            answer=user_answer
+        )
+    else:
+        # 示例输入
+        sample_question = """
 有一个水池，进水管每小时可以注入池容量的1/10，出水管每小时可以排出池容量的1/15。
 现在水池是空的，如果同时打开进水管和出水管，多少小时可以把水池注满？
 """
-    
-    sample_thinking = """
+
+        sample_thinking = """
 这是一个关于工程问题的题目，需要考虑进水和出水的净效率。
 
 设水池总容量为1（单位容量）
@@ -44,20 +87,20 @@ def main():
 要注满整个水池（容量为1），需要的时间为：
 时间 = 总容量 ÷ 净进水速度 = 1 ÷ (1/30) = 30小时
 """
-    
-    sample_answer = "30小时"
-    
-    print("📝 输入问题示例:")
-    print(f"问题: {sample_question.strip()}")
-    print(f"答案: {sample_answer}")
-    print("\n" + "=" * 50)
-    
-    # 运行工作流
-    result_state = workflow.run(
-        question=sample_question.strip(),
-        thinking_chain=sample_thinking.strip(),
-        answer=sample_answer
-    )
+
+        sample_answer = "30小时"
+
+        print("📝 输入问题示例:")
+        print(f"问题: {sample_question.strip()}")
+        print(f"答案: {sample_answer}")
+        print("\n" + "=" * 50)
+
+        # 运行工作流
+        result_state = workflow.run(
+            question=sample_question.strip(),
+            thinking_chain=sample_thinking.strip(),
+            answer=sample_answer
+        )
     
     # 获取并显示结果
     results = workflow.get_results(result_state)
