@@ -4,7 +4,7 @@
 """
 
 VERIFICATION_PROMPT = """
-你是一位严格的{expert_description}，请仔细检查以下问题的解答质量。
+你是一位严格的{domain_tags}领域专家，请仔细检查以下问题的解答质量。
 
 问题：{question}
 
