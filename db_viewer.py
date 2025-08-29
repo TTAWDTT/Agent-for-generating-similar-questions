@@ -161,8 +161,8 @@ def main():
         print("  python db_viewer.py solutions          - 显示所有解答")
         print("  python db_viewer.py context <id>       - 显示解答的完整上下文")
         print("  python db_viewer.py export [filename]  - 导出数据到JSON")
-    print("  python db_viewer.py qa [limit]         - 显示问题/思维链/答案总览")
-    return
+        print("  python db_viewer.py qa [limit]         - 显示问题/思维链/答案总览")
+        return
     
     command = sys.argv[1]
     
