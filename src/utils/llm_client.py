@@ -16,7 +16,7 @@ class LLMClient:
             api_key=os.getenv("DEEPSEEK_API_KEY", os.getenv("OPENAI_API_KEY")),
             base_url=os.getenv("OPENAI_BASE_URL", "https://api.deepseek.com/v1")
         )
-        self.model = "deepseek-reasoner"
+        self.model = "deepseek-chat"
     
     def chat_completion(self, messages: List[Dict[str, str]], 
                        temperature: float = 0.7) -> str:
@@ -114,4 +114,35 @@ class LLMClient:
                         return {"questions": matches}
             except Exception:
                 pass
+            # 容错回退：尝试用正则直接提取 thinking_chain 与 answer 字段（处理含未转义反斜杠的情况）
+            try:
+                # 使用更宽松的正则，匹配双引号之间的内容，允许未转义的反斜杠
+                tc_match = re.search(r'"thinking_chain"\s*:\s*"((?:[^"\\]|\\.|\\[^"])*)"', response, re.DOTALL)
+                ans_match = re.search(r'"answer"\s*:\s*"((?:[^"\\]|\\.|\\[^"])*)"', response, re.DOTALL)
+                
+                if tc_match or ans_match:
+                    def _clean_content(s: str) -> str:
+                        # 处理常见的转义序列和LaTeX符号
+                        # 先处理正确的JSON转义
+                        s = s.replace('\\"', '"')
+                        s = s.replace('\\\\', '\\')
+                        s = s.replace('\\n', '\n')
+                        s = s.replace('\\t', '\t')
+                        s = s.replace('\\r', '\r')
+                        # 保留LaTeX符号（如 \frac, \( \) 等）不做处理
+                        return s
+
+                    result = {}
+                    if tc_match:
+                        result['thinking_chain'] = _clean_content(tc_match.group(1))
+                    if ans_match:
+                        result['answer'] = _clean_content(ans_match.group(1))
+                    
+                    print(f"容错提取成功: thinking_chain={bool(tc_match)}, answer={bool(ans_match)}")
+                    return result
+            except Exception as regex_err:
+                print(f"正则提取失败: {regex_err}")
+                pass
+
+            # 最终仍无法解析，抛出原始异常以便上层处理
             raise e
