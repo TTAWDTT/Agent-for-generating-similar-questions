@@ -29,12 +29,29 @@ class LLMClient:
             )
             return response.choices[0].message.content
         except Exception as e:
-            print(f"LLM调用错误: {e}")
-            raise e
+            # 规范化各种可能的错误格式（OpenAI SDK 异常、字典形式的错误等）
+            try:
+                # 如果异常携带 dict 形式的信息，尽量提取可读部分
+                if hasattr(e, 'args') and e.args and isinstance(e.args[0], dict):
+                    err_info = e.args[0]
+                    # 常见结构: {'error': {...}}
+                    err_payload = err_info.get('error', err_info)
+                    message = json.dumps(err_payload, ensure_ascii=False)
+                else:
+                    message = str(e)
+            except Exception:
+                message = str(e)
+
+            print(f"LLM调用错误: {message}")
+            # 抛出一个明确的 RuntimeError，便于上层捕获并将信息写入 state.error
+            raise RuntimeError(message)
     
     def parse_json_response(self, response: str) -> Dict[str, Any]:
         """解析JSON响应"""
         try:
+            # 如果已经是 dict，直接返回（防止重复解析）
+            if isinstance(response, dict):
+                return response
             # 尝试找到JSON部分
             start_idx = response.find('{')
             end_idx = response.rfind('}') + 1
