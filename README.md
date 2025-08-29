@@ -14,7 +14,7 @@
 
 ### 核心框架
 - **LangGraph**: 工作流编排框架
-- **DeepSeek-Reasoner**: 主要推理模型
+- **deepseek-chat**: 主要推理模型
 - **SQLite**: 数据存储
 - **Pydantic**: 数据验证和模型
 
@@ -79,6 +79,20 @@ python main.py
 python test_workflow.py
 ```
 
+### 交互式运行（按用户输入生成）
+
+项目支持从用户输入直接触发工作流（问题 → 答案 → 思维链）。推荐在开发或演示时使用交互模式：
+
+```bash
+# 交互式模式，会提示依次输入：问题、参考答案、思维链（支持多行，以空行结束）
+python main.py --interactive
+
+# 或直接运行无参数时也会提示输入（取决于 main.py 的行为）
+python main.py
+```
+
+在交互模式下，输入会被直接传入 `QuestionGenerationWorkflow.run(question, thinking_chain, answer)` 并执行完整工作流。
+
 ## 💡 使用示例
 
 ### 基本用法
@@ -140,6 +154,8 @@ results = workflow.get_results(result_state)
 - 根据领域标签优化解题提示词
 - 生成详细的思维链和最终答案
 - 保存解答到数据库
+
+> 注意：模型经常会在数学表达式中使用 LaTeX（例如 `\frac{1}{2}`）或未转义的反斜杠，这可能导致 JSON 解析失败（Invalid \escape）。见下方“故障排查”部分获取缓解措施。
 
 ## 🗄️ 数据库设计
 
@@ -206,6 +222,12 @@ python db_viewer.py context <solution_id>
 python db_viewer.py export
 ```
 
+### 快速查看 QA 总览（问题 / 思维链 / 答案）
+
+```bash
+python db_viewer.py qa 10   # 列出最近 10 条解答的 问题/思维链/答案
+```
+
 ## 🔧 配置说明
 
 ### 环境变量
@@ -218,19 +240,7 @@ python db_viewer.py export
 
 ### 支持的领域标签
 
-- 数学、物理、化学、生物
-- 历史、地理、语文、英语  
-- 编程、算法、机器学习、深度学习
-- 经济学、心理学、哲学、逻辑
-
-## 🚧 开发计划
-
-- [ ] 支持更多模型（Claude、Gemini等）
-- [ ] 添加问题难度分级
-- [ ] 实现批量处理功能
-- [ ] 添加Web界面
-- [ ] 支持自定义提示词模板
-- [ ] 添加问题质量评估
+数据&聚类、深度学习、SVM、决策树、贝叶斯、集成学习
 
 ## 🤝 贡献指南
 
