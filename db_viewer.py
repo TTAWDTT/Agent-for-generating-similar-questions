@@ -132,6 +132,21 @@ class DatabaseViewer:
         
         print(f"✅ 成功导出 {len(solutions)} 条解答数据")
 
+    def show_qa_overview(self, limit: int | None = None):
+        """显示 QA 总览（问题/思维链/答案）"""
+        data = self.db_manager.get_qa_overview(limit=limit)
+        if not data:
+            print("暂无数据")
+            return
+        print("🧾 QA 总览（问题/思维链/答案）")
+        print("=" * 100)
+        for i, row in enumerate(data, 1):
+            print(f"{i}. 解答ID: {row['solution_id']} | 问题ID: {row['question_id']} | 时间: {row['created_at']}")
+            print(f"📝 问题: {row['question']}")
+            print(f"💭 思维链: {row['thinking_chain']}")
+            print(f"✅ 答案: {row['answer']}")
+            print("-" * 100)
+
 
 def main():
     """主函数"""
@@ -146,7 +161,8 @@ def main():
         print("  python db_viewer.py solutions          - 显示所有解答")
         print("  python db_viewer.py context <id>       - 显示解答的完整上下文")
         print("  python db_viewer.py export [filename]  - 导出数据到JSON")
-        return
+    print("  python db_viewer.py qa [limit]         - 显示问题/思维链/答案总览")
+    return
     
     command = sys.argv[1]
     
@@ -166,6 +182,14 @@ def main():
     elif command == "export":
         filename = sys.argv[2] if len(sys.argv) > 2 else "database_export.json"
         viewer.export_to_json(filename)
+    elif command == "qa":
+        limit = None
+        if len(sys.argv) > 2:
+            try:
+                limit = int(sys.argv[2])
+            except ValueError:
+                limit = None
+        viewer.show_qa_overview(limit)
     else:
         print(f"未知命令: {command}")
 

@@ -58,6 +58,22 @@ class DatabaseManager:
                 )
             """)
             
+            # 创建只读视图：汇总 问题/思维链/答案，便于统一查看
+            cursor.execute(
+                """
+                CREATE VIEW IF NOT EXISTS qa_overview AS
+                SELECT
+                    qs.id            AS solution_id,
+                    qs.question_id   AS question_id,
+                    gq.question      AS question,
+                    qs.thinking_chain AS thinking_chain,
+                    qs.answer        AS answer,
+                    qs.created_at    AS created_at
+                FROM question_solutions qs
+                JOIN generated_questions gq ON qs.question_id = gq.id
+                """
+            )
+
             conn.commit()
     
     def insert_original_question(self, question: str, thinking_chain: str, 
@@ -192,6 +208,30 @@ class DatabaseManager:
                     created_at=datetime.fromisoformat(row[5])
                 ))
             return solutions
+
+    def get_qa_overview(self, limit: Optional[int] = None):
+        """获取 QA 总览视图（问题/思维链/答案）"""
+        with sqlite3.connect(self.db_path) as conn:
+            cursor = conn.cursor()
+            base_sql = (
+                "SELECT solution_id, question_id, question, thinking_chain, answer, created_at "
+                "FROM qa_overview ORDER BY datetime(created_at) DESC"
+            )
+            if limit and isinstance(limit, int) and limit > 0:
+                base_sql += f" LIMIT {int(limit)}"
+            cursor.execute(base_sql)
+            rows = cursor.fetchall()
+            results = []
+            for r in rows:
+                results.append({
+                    "solution_id": r[0],
+                    "question_id": r[1],
+                    "question": r[2],
+                    "thinking_chain": r[3],
+                    "answer": r[4],
+                    "created_at": r[5],
+                })
+            return results
     
     def get_solution_with_full_context(self, solution_id: int) -> Optional[dict]:
         """获取解答的完整上下文信息，包括原始问题、生成问题、解答等"""
