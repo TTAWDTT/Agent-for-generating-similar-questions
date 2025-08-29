@@ -69,8 +69,10 @@ def main():
     print("\n📋 执行结果:")
     print("=" * 50)
     
-    # 显示原问题标签
-    print(f"🏷️ 原问题标签: {', '.join(results['original_question']['tags'])}")
+    # 显示原问题标签与题型
+    print(f"🏷️ 原问题标签: {', '.join(results['original_question'].get('domain_tags', []))}")
+    if results['original_question'].get('question_type'):
+        print(f"📌 题型: {results['original_question']['question_type']}")
     
     # 显示生成的问题和解答
     print(f"\n📚 生成的问题和解答 ({len(results['generated_questions'])} 道):")

@@ -87,14 +87,24 @@ class QuestionGenerationWorkflow:
         # 运行工作流
         try:
             final_state = self.workflow.invoke(initial_state)
-            
+
+            # LangGraph 常常返回字典形式的状态，这里将其转换为 WorkflowState，而不是当成错误
+            if isinstance(final_state, dict):
+                try:
+                    final_state = WorkflowState(**final_state)
+                except Exception:
+                    # 若转换失败，再尝试读取其中的 error 字段
+                    err_msg = final_state.get('error') if isinstance(final_state, dict) else str(final_state)
+                    print(f"❌ 工作流执行失败: {err_msg or final_state}")
+                    return WorkflowState(input_question=initial_state.input_question, error=str(err_msg or final_state))
+
             if final_state.error:
                 print(f"❌ 工作流执行失败: {final_state.error}")
             else:
                 print("✅ 工作流执行成功!")
                 print(f"📊 生成了 {len(final_state.generated_questions)} 道问题")
                 print(f"📝 完成了 {len(final_state.solutions)} 个解答")
-            
+
             return final_state
             
         except Exception as e:

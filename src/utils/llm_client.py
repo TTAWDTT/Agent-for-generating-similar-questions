@@ -3,6 +3,7 @@ import json
 import os
 from typing import List, Dict, Any
 from dotenv import load_dotenv
+import re
 
 load_dotenv()
 
@@ -31,10 +32,8 @@ class LLMClient:
         except Exception as e:
             # 规范化各种可能的错误格式（OpenAI SDK 异常、字典形式的错误等）
             try:
-                # 如果异常携带 dict 形式的信息，尽量提取可读部分
                 if hasattr(e, 'args') and e.args and isinstance(e.args[0], dict):
                     err_info = e.args[0]
-                    # 常见结构: {'error': {...}}
                     err_payload = err_info.get('error', err_info)
                     message = json.dumps(err_payload, ensure_ascii=False)
                 else:
@@ -57,6 +56,48 @@ class LLMClient:
             end_idx = response.rfind('}') + 1
             if start_idx != -1 and end_idx != 0:
                 json_str = response[start_idx:end_idx]
+
+                # 将字符串内部的裸换行替换为 \n，并移除尾随逗号
+                def _sanitize_for_json(s: str) -> str:
+                    out = []
+                    in_string = False
+                    escape = False
+                    for ch in s:
+                        if in_string:
+                            if escape:
+                                out.append(ch)
+                                escape = False
+                            else:
+                                if ch == '\\':
+                                    out.append(ch)
+                                    escape = True
+                                elif ch == '"':
+                                    out.append(ch)
+                                    in_string = False
+                                elif ch == '\n':
+                                    out.append('\\n')
+                                elif ch == '\r':
+                                    # 忽略 CR 或在需要时可转换
+                                    continue
+                                else:
+                                    out.append(ch)
+                        else:
+                            if ch == '"':
+                                out.append(ch)
+                                in_string = True
+                            else:
+                                out.append(ch)
+                    res = ''.join(out)
+                    # 去掉对象/数组末尾的尾随逗号
+                    res = re.sub(r',\s*([}\]])', r'\1', res)
+                    return res
+
+                json_str = _sanitize_for_json(json_str)
+                # 修复常见的非法反斜杠转义（如 \()）：为未知转义符前再补一个反斜杠
+                try:
+                    json_str = re.sub(r'\\(?!["\\/bfnrtu])', r'\\\\', json_str)
+                except Exception:
+                    pass
                 return json.loads(json_str)
             else:
                 # 如果没找到JSON，尝试直接解析整个响应
@@ -64,4 +105,13 @@ class LLMClient:
         except json.JSONDecodeError as e:
             print(f"JSON解析错误: {e}")
             print(f"原始响应: {response}")
+            # 容错：若包含 questions 列表但整体 JSON 不完整，尽力提取可用的问题文本
+            try:
+                if isinstance(response, str) and '"questions"' in response:
+                    # 提取所有完整的一行形式的 question 字段，忽略被截断的最后一项
+                    matches = re.findall(r'\"question\"\s*:\s*\"([^\"\n\r]*)\"', response)
+                    if matches:
+                        return {"questions": matches}
+            except Exception:
+                pass
             raise e
